@@ -1,0 +1,448 @@
+AppointmentSystemApplication.java: 
+package com.appointment; 
+ 
+import org.springframework.boot.SpringApplication; 
+import org.springframework.boot.autoconfigure.SpringBootApplication; 
+ 
+@SpringBootApplication 
+public class AppointmentSystemApplication { 
+    public static void main(String[] args) { 
+        SpringApplication.run(AppointmentSystemApplication.class, args); 
+    } 
+} 
+ 
+AppointmentController.java: 
+ 
+package com.appointment.controller; 
+ 
+import com.appointment.model.Appointment; 
+import com.appointment.service.AppointmentService; 
+import org.springframework.stereotype.Controller; 
+import org.springframework.ui.Model; 
+import org.springframework.web.bind.annotation.*; 
+ 
+@Controller 
+public class AppointmentController { 
+ 
+    private final AppointmentService service; 
+ 
+    public AppointmentController(AppointmentService service) { 
+        this.service = service; 
+    } 
+ 
+    @GetMapping("/") 
+    public String home() { 
+        return "index"; 
+    } 
+ 
+    @GetMapping("/add") 
+    public String addForm(Model model) { 
+        model.addAttribute("appointment", new Appointment()); 
+        return "add_appointment"; 
+    } 
+ 
+    @PostMapping("/save") 
+    public String save(@ModelAttribute Appointment appointment) { 
+        service.save(appointment); 
+        return "redirect:/view"; 
+    } 
+ 
+    @GetMapping("/view") 
+    public String view(Model model) { 
+        model.addAttribute("list", service.getAll()); 
+        return "view_appointments"; 
+    } 
+ 
+    @GetMapping("/delete/{id}") 
+    public String delete(@PathVariable int id) { 
+        service.delete(id); 
+        return "redirect:/view"; 
+    } 
+ 
+    @GetMapping("/edit/{id}") 
+    public String edit(@PathVariable int id, Model model) { 
+        model.addAttribute("appointment", service.getById(id)); 
+        return "update_appointment"; 
+    } 
+ 
+    @GetMapping("/search") 
+    public String search(@RequestParam String name, Model model) { 
+ 
+        if (name == null || name.trim().isEmpty()) { 
+            return "redirect:/"; 
+        } 
+ 
+        model.addAttribute("list", service.search(name)); 
+        return "view_appointments"; 
+    } 
+} 
+ 
+Appointment.java: 
+ 
+package com.appointment.model; 
+ 
+import jakarta.persistence.Entity; 
+import jakarta.persistence.Id; 
+ 
+@Entity 
+public class Appointment { 
+ 
+    @Id 
+    private int appointmentid; 
+ 
+    private String clientname; 
+    private String service; 
+    private String date; 
+    private String time; 
+ 
+    public int getAppointmentid() { return appointmentid; } 
+    public void setAppointmentid(int appointmentid) { this.appointmentid = appointmentid; } 
+ 
+    public String getClientname() { return clientname; } 
+    public void setClientname(String clientname) { this.clientname = clientname; } 
+ 
+    public String getService() { return service; } 
+    public void setService(String service) { this.service = service; } 
+ 
+    public String getDate() { return date; } 
+    public void setDate(String date) { this.date = date; } 
+ 
+    public String getTime() { return time; } 
+    public void setTime(String time) { this.time = time; } 
+} 
+ 
+AppointmentRepository.java: 
+ 
+package com.appointment.repository; 
+ 
+import com.appointment.model.Appointment; 
+import org.springframework.data.jpa.repository.JpaRepository; 
+import java.util.List; 
+ 
+public interface AppointmentRepository extends JpaRepository<Appointment, Integer> { 
+ 
+    List<Appointment> findByClientnameContainingIgnoreCase(String name); 
+} 
+ 
+AppointmentService.java: 
+ 
+package com.appointment.service; 
+ 
+import com.appointment.model.Appointment; 
+import java.util.List; 
+ 
+public interface AppointmentService { 
+ 
+    Appointment save(Appointment appointment); 
+ 
+    List<Appointment> getAll(); 
+ 
+    Appointment getById(int id); 
+ 
+    void delete(int id); 
+ 
+    List<Appointment> search(String name); 
+} 
+ 
+AppointmentServiceImpl.java: 
+ 
+package com.appointment.service; 
+ 
+import com.appointment.model.Appointment; 
+import com.appointment.repository.AppointmentRepository; 
+import org.springframework.stereotype.Service; 
+ 
+import java.util.List; 
+ 
+@Service 
+public class AppointmentServiceImpl implements AppointmentService { 
+ 
+    private final AppointmentRepository repo; 
+ 
+    public AppointmentServiceImpl(AppointmentRepository repo) { 
+        this.repo = repo; 
+    } 
+ 
+    @Override 
+    public Appointment save(Appointment appointment) { 
+ 
+        if (appointment.getAppointmentid() == 0) { 
+ 
+            List<Appointment> list = repo.findAll(); 
+            int nextId = 1; 
+ 
+            if (!list.isEmpty()) { 
+                nextId = list.get(list.size() - 1).getAppointmentid() + 1; 
+            } 
+ 
+            appointment.setAppointmentid(nextId); 
+        } 
+ 
+        return repo.save(appointment); 
+    } 
+ 
+    @Override 
+    public List<Appointment> getAll() { 
+        return repo.findAll(); 
+    } 
+ 
+    @Override 
+    public Appointment getById(int id) { 
+        return repo.findById(id).orElse(null); 
+    } 
+ 
+    @Override 
+    public void delete(int id) { 
+ 
+        if (!repo.existsById(id)) return; 
+ 
+        repo.deleteById(id); 
+        List<Appointment> list = repo.findAll(); 
+        int i = 1; 
+        for (Appointment a : list) { 
+            a.setAppointmentid(i++); 
+        } 
+        repo.saveAll(list); 
+    } 
+ 
+    @Override 
+    public List<Appointment> search(String name) { 
+        return repo.findByClientnameContainingIgnoreCase(name); 
+    } 
+} 
+ 
+ 
+ 
+styles.css: 
+body { 
+    margin: 0; 
+    font-family: Arial, sans-serif; 
+    background: url('https://images.unsplash.com/photo-1506784365847-bbad939e9335') no-repeat center 
+center fixed; 
+    background-size: cover; 
+} 
+ 
+.container { 
+    width: 400px; 
+    margin: 100px auto; 
+    background: rgba(255,255,255,0.9); 
+    padding: 30px; 
+    border-radius: 12px; 
+    text-align: center; 
+    box-shadow: 0 0 15px rgba(0,0,0,0.3); 
+} 
+ 
+button { 
+    width: 100%; 
+    padding: 10px; 
+    margin-top: 10px; 
+    background: #007BFF; 
+    color: white; 
+    border: none; 
+    border-radius: 5px; 
+    font-size: 16px; 
+    cursor: pointer; 
+} 
+ 
+button:hover { 
+    background: #0056b3; 
+} 
+ 
+input { 
+    width: 90%; 
+    padding: 8px; 
+    margin: 8px 0; 
+    border-radius: 5px; 
+    border: 1px solid #ccc; 
+} 
+ 
+table { 
+    width: 80%; 
+    margin: 50px auto; 
+    border-collapse: collapse; 
+    background: white; 
+} 
+ 
+th, td { 
+    padding: 10px; 
+    text-align: center; 
+} 
+th { 
+    background: #007BFF; 
+    color: white; 
+} 
+ 
+tr:nth-child(even) { 
+    background: #f2f2f2; 
+} 
+ 
+a { 
+    text-decoration: none; 
+    padding: 5px 10px; 
+    border-radius: 5px; 
+} 
+ 
+a[href*="edit"] { 
+    background: orange; 
+    color: white; 
+} 
+ 
+a[href*="delete"] { 
+    background: red; 
+    color: white; 
+} 
+ 
+h2 { 
+    margin-bottom: 20px; 
+} 
+ 
+index.html: 
+ 
+<html xmlns:th="http://www.thymeleaf.org"> 
+<link rel="stylesheet" href="/css/styles.css"> 
+<div class="container"> 
+<h2>Appointment Booking</h2> 
+ 
+<form th:action="@{/search}" method="get"> 
+ 
+<input type="text" name="name" placeholder="Search by Client" required> 
+ 
+<button type="submit">Search</button> 
+ 
+</form> 
+ 
+<a href="/add"><button>Add</button></a> 
+<a href="/view"><button>View</button></a> 
+</div> 
+</html> 
+ 
+add_appointment.html: 
+ 
+<html xmlns:th="http://www.thymeleaf.org"> 
+<link rel="stylesheet" href="/css/styles.css"> 
+ 
+<div class="container"> 
+<form th:action="@{/save}" method="post"> 
+<input type="hidden" name="appointmentid" value="0"> 
+<input name="clientname" placeholder="Name"> 
+<input name="service" placeholder="Service"> 
+<input type="date" name="date"> 
+<input type="time" name="time"> 
+<button>Save</button> 
+</form> 
+</div> 
+</html> 
+ 
+update_appointment.html: 
+ 
+<html xmlns:th="http://www.thymeleaf.org"> 
+<link rel="stylesheet" href="/css/styles.css"> 
+ 
+<div class="container"> 
+<form th:action="@{/save}" method="post"> 
+<input name="appointmentid" th:value="${appointment.appointmentid}"> 
+<input name="clientname" th:value="${appointment.clientname}"> 
+<input name="service" th:value="${appointment.service}"> 
+<input type="date" name="date" th:value="${appointment.date}"> 
+<input type="time" name="time" th:value="${appointment.time}"> 
+<button>Update</button> 
+</form> 
+</div> 
+</html> 
+ 
+view_appointments.html: 
+ 
+<!DOCTYPE html> 
+<html xmlns:th="http://www.thymeleaf.org"> 
+<head> 
+    <title>Appointments</title> 
+    <link rel="stylesheet" href="/css/styles.css"> 
+</head> 
+<body> 
+ 
+<h2 style="text-align:center; color:white;">Appointments</h2> 
+ 
+<div class="table-container"> 
+ 
+<table> 
+ 
+<tr> 
+<th>ID</th> 
+<th>Name</th> 
+<th>Service</th> 
+<th>Date</th> 
+<th>Time</th> 
+<th>Action</th> 
+</tr> 
+ 
+<tr th:each="a : ${list}"> 
+<td th:text="${a.appointmentid}"></td> 
+<td th:text="${a.clientname}"></td> 
+<td th:text="${a.service}"></td> 
+<td th:text="${a.date}"></td> 
+<td th:text="${a.time}"></td> 
+<td> 
+<a th:href="@{/edit/{id}(id=${a.appointmentid})}">Edit</a> 
+<a th:href="@{/delete/{id}(id=${a.appointmentid})}">Delete</a> 
+</td> 
+</tr> 
+ 
+</table> 
+ 
+</div> 
+ 
+</body> 
+</html> 
+ 
+application.properties: 
+ 
+spring.datasource.url=jdbc:mysql://localhost:3306/appointment_db 
+spring.datasource.username=root 
+spring.datasource.password=mithuS@06 
+ 
+spring.jpa.hibernate.ddl-auto=update 
+spring.jpa.show-sql=true 
+server.port=8082 
+ 
+pom.xml: 
+ 
+<project xmlns="http://maven.apache.org/POM/4.0.0"> 
+    <modelVersion>4.0.0</modelVersion> 
+ 
+    <groupId>com.appointment</groupId> 
+    <artifactId>appointment-system</artifactId> 
+    <version>1.0</version> 
+ 
+    <parent> 
+        <groupId>org.springframework.boot</groupId> 
+        <artifactId>spring-boot-starter-parent</artifactId> 
+        <version>3.2.0</version> 
+    </parent> 
+ 
+    <dependencies> 
+        <dependency> 
+            <groupId>org.springframework.boot</groupId> 
+            <artifactId>spring-boot-starter-web</artifactId> 
+        </dependency> 
+ 
+        <dependency> 
+            <groupId>org.springframework.boot</groupId> 
+            <artifactId>spring-boot-starter-thymeleaf</artifactId> 
+        </dependency> 
+ 
+        <dependency> 
+            <groupId>org.springframework.boot</groupId> 
+            <artifactId>spring-boot-starter-data-jpa</artifactId> 
+        </dependency> 
+ 
+        <dependency> 
+            <groupId>com.mysql</groupId> 
+            <artifactId>mysql-connector-j</artifactId> 
+        </dependency> 
+         
+    </dependencies> 
+</project> 
+ 
+Database: 
+ 
+CREATE DATABASE appointment_db;
